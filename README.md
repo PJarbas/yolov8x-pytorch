@@ -13,7 +13,7 @@ Ensure that your **python** version is >= 3.9
 Install the requirements:
 
 ```bash
-   $ pip install -r requirments.txt 
+   $ pip install -r requirements.txt 
 ```
 
 To make the inference, run the following command:
