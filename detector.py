@@ -5,7 +5,10 @@ import pafy
 import pandas as pd
 import random
 from time import time
+import norfair
+from norfair import Detection, Tracker, Video
 import os
+import uuid
 
 # adapted from: https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
 
@@ -24,7 +27,12 @@ class ObjectDetection:
         self.classes = self.model.names
         self.class_colors = self.bbox_class_colors()
         
-        self.out_file = out_file
+        self.tracker = Tracker(
+            distance_function="euclidean",
+            distance_threshold=30,
+        )
+        
+        self.out_file = f"{str(uuid.uuid4()).split('-')[0]}_{out_file}"
         self.rm_output_file()
         
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -51,7 +59,7 @@ class ObjectDetection:
         model = torch.hub.load('ultralytics/yolov5', 'yolov5x', pretrained=True)
         return model
 
-    def score_frame(self, frame):
+    def score_frame(self, frame, threshold=0.6):
         """
         Takes a single frame as input, and scores the frame using yolo5 model.
         :param frame: input frame in numpy/list/tuple format.
@@ -60,6 +68,7 @@ class ObjectDetection:
         self.model.to(self.device)
         frame = [frame]
         results = self.model(frame)
+        return results
         
         # results.pandas().xyxy[0]  # im1 predictions (pandas)
         #      xmin    ymin    xmax   ymax  confidence  class    name
@@ -68,7 +77,9 @@ class ObjectDetection:
         # 2  114.75  195.75  1095.0  708.0    0.624512      0  person
         # 3  986.00  304.00  1028.0  420.0    0.286865     27     tie
         
-        return results.pandas().xyxy[0]
+        # out = results.pandas().xyxy[0]
+        
+        # return out[out['confidence'] > threshold]
 
     def class_to_label(self, x):
         """
@@ -87,6 +98,33 @@ class ObjectDetection:
             random.randint(0, 255),
             random.randint(0, 255),
             random.randint(0, 255)) for name in self.classes}
+    
+    def tracking(self, results, frame):
+        
+        detections_as_xywh = results.xywh[0]
+        norfair_detections = []
+        
+        for detection_as_xywh in detections_as_xywh:
+
+            centroid = np.array(
+                [detection_as_xywh[0].item(), detection_as_xywh[1].item()]
+            )
+            
+            scores = np.array([detection_as_xywh[4].item()])
+            
+            norfair_detections.append(
+                Detection(
+                    points=centroid,
+                    scores=scores,
+                    label=self.class_to_label(detection_as_xywh[-1].item()),
+                )
+            )
+            
+        tracked_objects = self.tracker.update(detections=norfair_detections)
+        norfair.draw_points(frame, tracked_objects)
+        
+        return frame
+            
 
     def plot_boxes(self, results, frame):
         """
@@ -95,25 +133,24 @@ class ObjectDetection:
         :param frame: Frame which has been scored.
         :return: Frame with bounding boxes and labels ploted on it.
         """
-        x_shape, y_shape = frame.shape[1], frame.shape[0]
         
         for _, data in results.iterrows():
             
             confidence = data["confidence"]
             label = data["name"]
+            class_id = data["class"]
             
             xmin = int(data["xmin"])
             xmax = int(data["xmax"])
             ymin = int(data["ymin"])
             ymax = int(data["ymax"])
             
-            if confidence >= 0.2:
-                bgr = self.class_colors[label]
-                cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), bgr, 1)
-                cv2.putText(frame, "{} {:.2f}".format(label, float(confidence)), (xmin, ymin),
-                            cv2.FONT_HERSHEY_SIMPLEX, lineType=cv2.FILLED,
-                            fontScale=0.5, color=bgr, thickness=2)
-
+            bgr = self.class_colors[class_id]
+            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), bgr, 1)
+            cv2.putText(frame, "{} {:.2f}".format(label, float(confidence)), (xmin, ymin),
+                        cv2.FONT_HERSHEY_SIMPLEX, lineType=cv2.FILLED,
+                        fontScale=0.5, color=bgr, thickness=2)
+        
         return frame
 
     def detect(self, video_url):
@@ -139,7 +176,8 @@ class ObjectDetection:
             assert ret
             
             results = self.score_frame(frame)
-            frame = self.plot_boxes(results, frame)
+            
+            frame = self.tracking(results, frame)
             
             end_time = time()
             fps = 1/np.round(end_time - start_time, 3)

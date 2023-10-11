@@ -3,7 +3,7 @@
 ![](icon/icon.gif) 
 
 
-This project aims to use a object detecion deep learning model, using a the yolov5x from Pytorch Hub
+This project aims to use a object detecion deep learning model with tracking, using a the yolov5x from Pytorch Hub and norfair library
 
 
 ### Get started
