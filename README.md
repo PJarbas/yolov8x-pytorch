@@ -1,6 +1,6 @@
 ## Object Detection in video streaming from Youtube
 
-![](icon/output_video.avi) 
+![](icon/video.mp4) 
 
 
 This project aims to use a object detecion deep learning model with tracking, using a the yolov5x from Pytorch Hub and norfair library
