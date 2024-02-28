@@ -5,6 +5,7 @@ import pafy
 import pandas as pd
 import random
 from time import time
+from ultralytics import YOLO
 import norfair
 from norfair import Detection, Tracker, Video
 import os
@@ -15,7 +16,7 @@ import uuid
 
 class ObjectDetection:
     """
-    Class implements Yolo5 model to make inferences on a youtube video using Opencv2.
+    Class implements Yolo8x model to make inferences and tracking on a youtube video using Opencv2.
     """
 
     def __init__(self, out_file="Output_Video.avi"):
@@ -52,11 +53,10 @@ class ObjectDetection:
 
     def load_model(self):
         """
-        Loads Yolo5 model from pytorch hub.
+        Loads Yolov8x model from pytorch hub.
         :return: Trained Pytorch model.
-        # https://pytorch.org/hub/ultralytics_yolov5/
         """
-        model = torch.hub.load('ultralytics/yolov5', 'yolov5x', pretrained=True)
+        model = YOLO('yolov8x.pt')
         return model
 
     def score_frame(self, frame, threshold=0.6):
@@ -101,7 +101,8 @@ class ObjectDetection:
     
     def tracking(self, results, frame):
         
-        detections_as_xywh = results.xywh[0]
+        #detections_as_xywh = results.xywh[0]
+        detections_as_xywh = results[0].boxes.data
         norfair_detections = []
         
         for detection_as_xywh in detections_as_xywh:
