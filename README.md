@@ -1,6 +1,6 @@
 ## Object Detection and tracking in video streaming from Youtube
 
-![](icon/output_video.avi) 
+![](icon/icon.gif)
 
 
 This project aims to use a object detecion deep learning model with tracking, using a the yolov8x with norfair library
